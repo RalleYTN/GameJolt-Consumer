@@ -75,13 +75,13 @@ public abstract class GameJoltObject {
 	 */
 	public void write(Writer writer) throws IOException {
 		
-		this.json.writeJSONString(writer);
+		this.json.write(writer);
 	}
 	
 	@Override
 	public String toString() {
 		
-		return this.json.toJSONString();
+		return this.json.toString();
 	}
 	
 	/**

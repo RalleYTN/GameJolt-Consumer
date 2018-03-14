@@ -23,30 +23,16 @@
  */
 package de.ralleytn.api.gamejolt;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import de.ralleytn.api.gamejolt.internal.GameJoltObject;
-import de.ralleytn.api.gamejolt.internal.Utils;
-import de.ralleytn.simple.json.JSONArray;
+import de.ralleytn.api.gamejolt.internal.Util;
 import de.ralleytn.simple.json.JSONObject;
 import de.ralleytn.simple.json.JSONParseException;
-import de.ralleytn.simple.json.JSONParser;
 
 /**
  * Represents the interface between the client program and GameJolt.
@@ -184,7 +170,7 @@ public class GameJolt {
 		
 		JSONObject response = this.get("/scores/tables", null);
 		this.checkStatus(response);
-		return GameJolt.toList(response.getArray("tables"), GameJoltScoreTable.class, this);
+		return Util.toList(response.getArray("tables"), GameJoltScoreTable.class, this);
 	}
 	
 	// ==== GET /scores/get-rank
@@ -514,7 +500,7 @@ public class GameJolt {
 		
 		JSONObject response = this.get("/scores", params);
 		this.checkStatus(response);
-		return GameJolt.toList(response.getArray("scores"), GameJoltScore.class, this);
+		return Util.toList(response.getArray("scores"), GameJoltScore.class, this);
 	}
 	
 	// ==== GET /get-time
@@ -571,7 +557,7 @@ public class GameJolt {
 	 */
 	public List<GameJoltTrophy> getTrophies(Collection<Long> trophy_ids) throws IOException, GameJoltException, JSONParseException {
 		
-		return this.getTrophies(Utils.toLongArray(trophy_ids));
+		return this.getTrophies(Util.toLongArray(trophy_ids));
 	}
 	
 	/**
@@ -618,7 +604,7 @@ public class GameJolt {
 		
 		JSONObject response = this.get("/trophies", params);
 		this.checkStatus(response);
-		return GameJolt.toList(response.getArray("trophies"), GameJoltTrophy.class, this);
+		return Util.toList(response.getArray("trophies"), GameJoltTrophy.class, this);
 	}
 	
 	// ==== GET /users
@@ -633,7 +619,7 @@ public class GameJolt {
 	 */
 	public List<GameJoltUser> getUsers(Collection<Long> user_ids) throws IOException, GameJoltException, JSONParseException {
 		
-		return this.getUsers(Utils.toLongArray(user_ids));
+		return this.getUsers(Util.toLongArray(user_ids));
 	}
 	
 	/**
@@ -647,11 +633,11 @@ public class GameJolt {
 	public List<GameJoltUser> getUsers(long[] user_ids) throws IOException, GameJoltException, JSONParseException {
 		
 		Map<String, Object> params = new HashMap<>();
-		params.put("user_ids", user_ids);
+		params.put("user_id", user_ids);
 		
 		JSONObject response = this.get("/users", params);
 		this.checkStatus(response);
-		return GameJolt.toList(response.getArray("users"), GameJoltUser.class, this);
+		return Util.toList(response.getArray("users"), GameJoltUser.class, this);
 	}
 	
 	/**
@@ -740,64 +726,17 @@ public class GameJolt {
 		
 		return this.user_token;
 	}
-	
-	static final <T extends GameJoltObject>List<T> toList(JSONArray array, Class<T> type, GameJolt consumer) {
-		
-		List<T> list = new ArrayList<>();
-		
-		for(Object element : array) {
-			
-			try {
-				
-				Constructor<T> constructor = type.getDeclaredConstructor(GameJolt.class, JSONObject.class);
-				list.add(constructor.newInstance(consumer, (JSONObject)element));
-			
-			} catch(InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException | NoSuchMethodException | SecurityException exception) {
-				
-				// SHOULD NEVER HAPPEN!
-				throw new RuntimeException(exception);
-			}
-		}
-		
-		return list;
-	}
-
-	private final JSONObject finishRequest(HttpURLConnection connection) throws GameJoltException, IOException, JSONParseException {
-		
-		int status = connection.getResponseCode();
-		
-		if(status == HttpURLConnection.HTTP_OK) {
-			
-			try(BufferedReader reader = GameJolt.createReader(connection.getInputStream())) {
-				
-				Object parsedObject = new JSONParser().parse(reader);
-				
-				if(parsedObject instanceof JSONObject) {
-					
-					return ((JSONObject)parsedObject).getObject("response");
-					
-				} else {
-					
-					throw new GameJoltException(this, "A JSON object was expected, not an array!");
-				}
-			}
-			
-		} else {
-			
-			throw new GameJoltException(this, String.format("%d %s: %s", status, connection.getResponseMessage(), GameJolt.read(connection.getErrorStream())));
-		}
-	}
 
 	final JSONObject post(String endpoint, Map<String, Object> params, Map<String, Object> postParams) throws IOException, GameJoltException, JSONParseException {
 
-		HttpURLConnection connection = GameJolt.createConnection(this.createURL(endpoint, params), "POST", true);
-		GameJolt.write(connection.getOutputStream(), Utils.getQueryString(postParams).substring(1));
-		return this.finishRequest(connection);
+		HttpURLConnection connection = Util.createConnection(this.createURL(endpoint, params), "POST", true);
+		Util.write(connection.getOutputStream(), Util.getQueryString(postParams).substring(1));
+		return Util.finishRequest(this, connection);
 	}
 
 	final JSONObject get(String endpoint, Map<String, Object> params) throws IOException, GameJoltException, JSONParseException {
 
-		return this.finishRequest(GameJolt.createConnection(this.createURL(endpoint, params), "GET", false));
+		return Util.finishRequest(this, Util.createConnection(this.createURL(endpoint, params), "GET", false));
 	}
 
 	private final String createURL(String endpoint, Map<String, Object> params) {
@@ -816,65 +755,13 @@ public class GameJolt {
 		urlBuilder.append(GameJolt.DOMAIN);
 		urlBuilder.append(GameJolt.SERVICE_URL);
 		urlBuilder.append(endpoint);
-		urlBuilder.append(Utils.getQueryString(params));
+		urlBuilder.append(Util.getQueryString(params));
 		
-		String signature = Utils.createSignature(urlBuilder.toString(), this.privateKey);
+		String signature = Util.createSignature(urlBuilder.toString(), this.privateKey);
 		
 		urlBuilder.append("&signature=");
 		urlBuilder.append(signature);
 		
 		return urlBuilder.toString();
-	}
-	
-	private static final String read(InputStream inputStream) throws IOException {
-		
-		try(BufferedReader reader = GameJolt.createReader(inputStream)) {
-			
-			StringBuilder contentBuilder = new StringBuilder();
-			String line = null;
-			
-			while((line = reader.readLine()) != null) {
-				
-				contentBuilder.append(line);
-				contentBuilder.append('\n');
-			}
-			
-			return contentBuilder.toString();
-		}
-	}
-	
-	private static final HttpURLConnection createConnection(String requestURL, String requestMethod, boolean doOutput) throws IOException {
-
-		HttpURLConnection connection = (HttpURLConnection)new URL(requestURL).openConnection();
-		connection.setRequestMethod(requestMethod);
-		connection.setAllowUserInteraction(false);
-		connection.setConnectTimeout(5000); // 5 seconds
-		connection.setReadTimeout(300000); // 5 min
-		connection.setDefaultUseCaches(false);
-		connection.setDoInput(true);
-		connection.setDoOutput(doOutput);
-		connection.setInstanceFollowRedirects(false);
-		connection.setUseCaches(false);
-		
-		return connection;
-	}
-	
-	private static final void write(OutputStream outputStream, String content) throws IOException {
-		
-		try(BufferedWriter writer = GameJolt.createWriter(outputStream)) {
-			
-			writer.write(content);
-			writer.flush();
-		}
-	}
-	
-	private static final BufferedReader createReader(InputStream inputStream) {
-		
-		return new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
-	}
-	
-	private static final BufferedWriter createWriter(OutputStream outputStream) {
-		
-		return new BufferedWriter(new OutputStreamWriter(outputStream, StandardCharsets.UTF_8));
 	}
 }
